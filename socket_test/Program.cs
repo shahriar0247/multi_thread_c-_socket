@@ -21,7 +21,7 @@ namespace socket_test
             Thread t2 = new Thread(() => StartServer());
             t2.Start();
 
-          
+
 
         }
         public class recv_data
@@ -43,9 +43,11 @@ namespace socket_test
         {
             while (true)
             {
-                try { 
-                foreach (var item in recv_list)
+
+                try
                 {
+                    foreach (var item in recv_list)
+                    {
                         if (item.message_type == message_type)
                         {
                             recv_data current_data_item = item;
@@ -53,17 +55,35 @@ namespace socket_test
 
                             return current_data_item.data.ToArray();
                         }
-                       
-                   
-                }
-                    
+
+
+                    }
+
                 }
                 catch (ArgumentOutOfRangeException)
                 {
 
                 }
+                catch (System.InvalidOperationException)
+                {
+                    Thread.Sleep(100);
+                    return get_data(message_type);
+                }
+                catch (NullReferenceException)
+                {
+                    Thread.Sleep(100);
+                    return get_data(message_type);
+                }
             }
         }
+
+        public static void recv_loop(int message_type)
+        {
+            while (true) { 
+                Console.WriteLine("Client: " + Encoding.UTF8.GetString(get_data(message_type)));
+            }
+        }
+
         public static void StartClient()
         {
             byte[] bytes = new byte[1024];
@@ -88,13 +108,33 @@ namespace socket_test
                     // Connect to Remote EndPoint  
                     sender.Connect(remoteEP);
 
-                    send(sender, "Hello", 1);
-                    recv(sender);
-              
-                    
-                    Console.WriteLine("Client: " + Encoding.UTF8.GetString(get_data(1)));
-                    Console.WriteLine("Client: " + Encoding.UTF8.GetString(get_data(0)));
-                    Console.WriteLine("Client: " + Encoding.UTF8.GetString(get_data(0)));
+
+
+                    send(sender, "video", 2);
+                    send(sender, "video", 2);
+                    send(sender, "img", 1);
+
+
+                    send(sender, "video", 2);
+                    send(sender, "dir", 0);
+
+                
+                    send(sender, "img", 1);
+
+                    send(sender, "video", 2);
+                    send(sender, "dir", 0);
+                    send(sender, "dir", 0);
+
+               
+
+                    Thread t2 = new Thread(() => recv_loop(1));
+                    t2.Start();
+
+                    Thread t1 = new Thread(() => recv_loop(0));
+                    t1.Start();
+                    Thread t = new Thread(() => recv_loop(2));
+                    t.Start();
+
 
 
 
@@ -122,42 +162,58 @@ namespace socket_test
                 Console.WriteLine(e.ToString());
             }
         }
+        static void add_to_recv(byte[] bytes2)
+        {
+            List<byte> all_bytes = new List<byte>();
+            List<byte> bytes = new List<byte>(bytes2);
+            int message_type = 0;
+            int a = 0;
+
+            for (int b = 0; b < bytes.Count; b++)
+            {
+
+                if (bytes[a] == 60 && bytes[a + 1] == 69 && bytes[a + 2] == 79 && bytes[a + 3] == 70 && bytes[a + 4] == 62)
+                {
+                    message_type = bytes[a + 5];
+                    bytes.RemoveAt(a);
+                    bytes.RemoveAt(a);
+                    bytes.RemoveAt(a);
+                    bytes.RemoveAt(a);
+                    bytes.RemoveAt(a);
+                    bytes.RemoveAt(a);
+                    recv_list.Add(new recv_data(message_type, all_bytes));
+                    add_to_recv(bytes.ToArray());
+                    break;
+                }
+                all_bytes.Add(bytes[a]);
+                bytes.RemoveAt(a);
+            }
+           
+          
+        }
         static void recv(Socket handler)
         {
             string data = null;
             byte[] bytes = null;
             var all_bytes = new List<byte>();
-            int message_type = 0;
+           
             while (true)
             {
                 bytes = new byte[BUFFER];
-               
+
                 int bytesRec = handler.Receive(bytes);
-                bool break_loop = false;
-                
+                add_to_recv(bytes);
 
-                for (int a = 0; a < bytesRec; a++)
-                {
 
-                    
-                    if (bytes[a] == 60 && bytes[a + 1] == 69 && bytes[a + 2] == 79 && bytes[a + 3] == 70 && bytes[a + 4] == 62)
-                    {
-                        message_type = bytes[a + 5];
-                        break_loop = true;
-                        break;
-                    }
-                    all_bytes.Add(bytes[a]);
-                }
-                if (break_loop)
-                {
-                    break;
-                }
+
+
+     
             }
 
-           
-          
-            recv_list.Add(new recv_data(message_type, all_bytes));
-           
+
+
+            
+
 
         }
 
@@ -165,8 +221,8 @@ namespace socket_test
         {
             byte[] message_type2 = { message_type };
 
-            byte[] msg = Encoding.ASCII.GetBytes( message + "<EOF>" + Encoding.ASCII.GetString(message_type2));
-           
+            byte[] msg = Encoding.ASCII.GetBytes(message + "<EOF>" + Encoding.ASCII.GetString(message_type2));
+
             handler.Send(msg);
 
         }
@@ -194,7 +250,8 @@ namespace socket_test
 
                 recv(handler);
 
-                send(handler, "ok");
+
+
 
             }
             catch (Exception e)
